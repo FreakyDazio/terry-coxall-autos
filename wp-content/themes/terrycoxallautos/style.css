@@ -589,7 +589,8 @@ nav.primary a {
 }
 nav.primary a:hover,
 nav.primary a:focus,
-nav.primary li.current a {
+nav.primary li.current a,
+nav.primary li.current-menu-item a {
   background: white;
   color: red;
 }

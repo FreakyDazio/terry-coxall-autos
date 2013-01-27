@@ -12,3 +12,21 @@ set :branch, 'master'
 set :deploy_via, :remote_cache
 
 server '176.56.62.140', :web, :app, :db, primary: true
+
+after 'deploy:update_code', 'deploy:symlink_config'
+after 'deploy:update_code', 'deploy:prevent_htaccess_overwrite'
+after 'deploy:symlink', 'deploy:symlink_uploads'
+
+namespace :deploy do
+  task :symlink_uploads, roles: :app do
+    run "ln -nfs #{shared_path}/uploads #{release_path}/wp-content/uploads"
+  end
+
+  task :symlink_config, roles: :app do
+    run "ln -nfs #{shared_path}/config/wp-config.php #{release_path}/wp-config.php"
+  end
+
+  task :prevent_htaccess_overwrite, roles: :app do
+    run "chmod 754 #{release_path}/.htaccess"
+  end
+end
