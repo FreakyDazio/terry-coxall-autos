@@ -654,10 +654,13 @@ aside blockquote {
   margin: 0;
 }
 
-li.tick {
+li.tick, #menu-services li {
   list-style-image: url(images/tick.png);
   line-height: 2em;
   color: inherit;
+}
+#menu-services li {
+  font-weight: bold;
 }
 
 nav.secondary {
