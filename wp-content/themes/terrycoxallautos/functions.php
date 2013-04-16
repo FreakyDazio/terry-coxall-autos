@@ -56,3 +56,9 @@ function include_javascript()
     );
 }
 add_action('wp_enqueue_scripts', 'include_javascript');
+
+function deregister_plugin_styles() {
+    wp_deregister_style( 'katb_user_styles' );
+}
+
+add_action( 'wp_print_styles', 'deregister_plugin_styles', 100 );
