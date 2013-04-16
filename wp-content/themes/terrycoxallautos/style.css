@@ -800,3 +800,33 @@ footer p {
 .katb_widget_multiple_meta_basic:before {
   content:  "\2014 ";
 }
+.katb_input_style label {
+  width: 150px;
+  float: left;
+  clear: left;
+  margin-bottom: 5px;
+  display: block;
+}
+.katb_input_style input[name^='tb_'],
+.katb_input_style input[name^='tb_'],
+.katb_input_style input[name^='tb_'],
+.katb_input_style input[name^='tb_'],
+.katb_input_style textarea {
+  float: left;
+  display: block;
+  clear: right;
+  font-size: 14px;
+  padding: 5px;
+}
+.katb_input_style textarea {
+  width: 350px;
+  height: 100px;
+  position: relative;
+  top: -10px;
+}
+.katb_submit { clear: left; }
+.katb_submit, .katb_reset {
+  float: left;
+  margin-right: 20px;
+}
+.katb_clearboth { clear: both; }
