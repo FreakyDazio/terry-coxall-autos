@@ -15,7 +15,7 @@ if(!isset($_SESSION)) session_start();
 
   // Set some important CAPTCHA constants
   $number_characters = 6; // number of characters in pass-phrase
-  $captcha_width = 110; // width of image
+  
   $captcha_height = 26; // height of image
   
   // Generate the random pass-phrase
@@ -25,6 +25,10 @@ if(!isset($_SESSION)) session_start();
   	$position = mt_rand( 0, strlen($characters) - 1 );
 	$pass_phrase .= $characters[$position];
   }
+  
+  $textbox_size = imagettfbbox( 16, 0, 'Vera.ttf', $pass_phrase );
+  $text_width = $textbox_size[2] - $textbox_size[0];
+  $captcha_width = $text_width + 10; // width of image
   
     // Store the encrypted pass-phrase in a session variable
   $_SESSION['katb_pass_phrase'] = SHA1($pass_phrase);
