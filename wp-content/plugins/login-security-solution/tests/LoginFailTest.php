@@ -58,7 +58,7 @@ class LoginFailTest extends TestCase {
 		$options['login_fail_breach_pw_force_change'] = 4;
 		self::$lss->options = $options;
 
-		self::$lss->test_sleep = null;
+		self::$lss->user_pass = 'some password';
 	}
 
 
@@ -168,21 +168,22 @@ class LoginFailTest extends TestCase {
 		global $wpdb;
 
 		$actual = self::$lss->process_login_fail($this->user_name, 'reed');
-		$this->assertEquals(-1, $actual);
+		$this->assertEquals(-4, $actual);
 	}
 
 	public function test_wp_login__null() {
 		$actual = self::$lss->wp_login(null, null);
-		$this->assertNull($actual, 'Bad return value.');
+		$this->assertEquals(-3, $actual);
 	}
 
 	/**
 	 * @depends test_process_login_fail__pre_threshold
 	 */
 	public function test_wp_login__pre_breach_threshold() {
-		$actual = self::$lss->wp_login($this->user_name, $this->user);
-		$this->assertSame(1, $actual, 'wp_login() return value...');
-		$this->assertGreaterThan(0, self::$lss->test_sleep, 'Sleep not set.');
+		$actual = self::$lss->wp_login(null, $this->user);
+		$flag = login_security_solution::LOGIN_UNKNOWN_IP;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertFalse($actual, 'get_pw_force_change() return value...');
@@ -313,12 +314,15 @@ class LoginFailTest extends TestCase {
 
 		try {
 			// Do THE deed.
-			$actual = self::$lss->wp_login($this->user_name, $this->user);
+			$actual = self::$lss->wp_login(null, $this->user);
 		} catch (Exception $e) {
 			$this->fail($e->getMessage());
 		}
-		$this->assertSame(7, $actual, 'Bad return value.');
-		$this->assertGreaterThan(0, self::$lss->test_sleep, 'Sleep not set.');
+		$flag = login_security_solution::LOGIN_UNKNOWN_IP
+				+ login_security_solution::LOGIN_FORCE_PW_CHANGE
+				+ login_security_solution::LOGIN_NOTIFY;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertTrue($actual, 'get_pw_force_change() return value...');
@@ -331,7 +335,7 @@ class LoginFailTest extends TestCase {
 	/**
 	 * @depends test_wp_login__post_breach_threshold
 	 */
-	public function test_wp_login__post_breach_threshold_verified_ip() {
+	public function test_wp_login__post_breach_threshold_verified_ip_safe() {
 		global $wpdb;
 
 		$wpdb->query('SAVEPOINT pre_verified_ip');
@@ -344,21 +348,85 @@ class LoginFailTest extends TestCase {
 
 		try {
 			// Do THE deed.
-			$actual = self::$lss->wp_login($this->user_name, $this->user);
+			$actual = self::$lss->wp_login(null, $this->user);
 		} catch (Exception $e) {
 			$this->fail($e->getMessage());
 		}
-		$this->assertSame(9, $actual, 'Bad return value.');
-		$this->assertSame(0, self::$lss->test_sleep, 'Sleep should be 0.');
+		$flag = login_security_solution::LOGIN_VERIFIED_IP_SAFE;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertNull(self::$lss->sleep, 'Sleep should be unset.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertFalse($actual, 'get_pw_force_change() return value...');
+	}
 
+	/**
+	 * @depends test_wp_login__post_breach_threshold_verified_ip_safe
+	 */
+	public function test_wp_login__post_breach_threshold_verified_ip_new() {
+		self::$lss->delete_pw_force_change($this->user->ID);
+
+		$options = self::$lss->options;
+		$options['login_fail_breach_pw_force_change'] = 1;
+		$options['login_fail_minutes'] = 1;
+		self::$lss->options = $options;
+
+		self::$lss->time_overload = 10;
+		self::$lss->save_verified_ip($this->user->ID, $this->ip);
+		self::$lss->time_overload = 20;
+
+		try {
+			// Do THE deed.
+			$actual = self::$lss->wp_login(null, $this->user);
+		} catch (Exception $e) {
+			$this->fail($e->getMessage());
+		}
+		$flag = login_security_solution::LOGIN_VERIFIED_IP_NEW;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertNull(self::$lss->sleep, 'Sleep should be unset.');
+
+		$actual = self::$lss->get_pw_force_change($this->user->ID);
+		$this->assertFalse($actual, 'get_pw_force_change() return value...');
+	}
+
+	/**
+	 * @depends test_wp_login__post_breach_threshold_verified_ip_new
+	 */
+	public function test_wp_login__post_breach_threshold_verified_ip_old() {
+		global $wpdb;
+
+		self::$lss->delete_pw_force_change($this->user->ID);
+
+		$options = self::$lss->options;
+		$options['login_fail_breach_notify'] = 0;
+		$options['login_fail_breach_pw_force_change'] = 1;
+		$options['login_fail_minutes'] = 1;
+		self::$lss->options = $options;
+
+		self::$lss->time_overload = 10;
+		self::$lss->save_verified_ip($this->user->ID, $this->ip);
+		self::$lss->time_overload = 100;
+
+		try {
+			// Do THE deed.
+			$actual = self::$lss->wp_login(null, $this->user);
+		} catch (Exception $e) {
+			$this->fail($e->getMessage());
+		}
+		$flag = login_security_solution::LOGIN_VERIFIED_IP_OLD
+				+ login_security_solution::LOGIN_FORCE_PW_CHANGE;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
+
+		$actual = self::$lss->get_pw_force_change($this->user->ID);
+		$this->assertTrue($actual, 'get_pw_force_change() return value...');
+
+		self::$lss->delete_pw_force_change($this->user->ID);
 		$wpdb->query('ROLLBACK TO pre_verified_ip');
 	}
 
 	/**
-	 * @depends test_wp_login__post_breach_threshold_verified_ip
+	 * @depends test_wp_login__post_breach_threshold_verified_ip_old
 	 */
 	public function test_wp_login__post_breach_threshold_only_notify() {
 		self::$mail_file_basename = __METHOD__;
@@ -367,16 +435,16 @@ class LoginFailTest extends TestCase {
 		$options['login_fail_breach_pw_force_change'] = 0;
 		self::$lss->options = $options;
 
-		self::$lss->delete_pw_force_change($this->user->ID);
-
 		try {
 			// Do THE deed.
-			$actual = self::$lss->wp_login($this->user_name, $this->user);
+			$actual = self::$lss->wp_login(null, $this->user);
 		} catch (Exception $e) {
 			$this->fail($e->getMessage());
 		}
-		$this->assertSame(5, $actual, 'Bad return value.');
-		$this->assertGreaterThan(0, self::$lss->test_sleep, 'Sleep not set.');
+		$flag = login_security_solution::LOGIN_UNKNOWN_IP
+				+ login_security_solution::LOGIN_NOTIFY;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertFalse($actual, 'get_pw_force_change() return value...');
@@ -397,15 +465,20 @@ class LoginFailTest extends TestCase {
 		$this->network_ip = '1.2.38';
 
 		self::$lss->delete_pw_force_change($this->user->ID);
+		$actual = self::$lss->get_pw_force_change($this->user->ID);
+		$this->assertFalse($actual, 'pw_force_change should be empty to start with');
+		delete_user_meta($this->user->ID, self::$lss->umk_verified_ips);
 
 		try {
 			// Do THE deed.
-			$actual = self::$lss->wp_login($this->user_name, $this->user);
+			$actual = self::$lss->wp_login(null, $this->user);
 		} catch (Exception $e) {
 			$this->fail($e->getMessage());
 		}
-		$this->assertSame(3, $actual, 'Bad return value.');
-		$this->assertGreaterThan(0, self::$lss->test_sleep, 'Sleep not set.');
+		$flag = login_security_solution::LOGIN_UNKNOWN_IP
+				+ login_security_solution::LOGIN_FORCE_PW_CHANGE;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertTrue($actual, 'get_pw_force_change() return value...');
@@ -424,12 +497,13 @@ class LoginFailTest extends TestCase {
 
 		try {
 			// Do THE deed.
-			$actual = self::$lss->wp_login($this->user_name, $this->user);
+			$actual = self::$lss->wp_login(null, $this->user);
 		} catch (Exception $e) {
 			$this->fail($e->getMessage());
 		}
-		$this->assertSame(1, $actual, 'Bad return value.');
-		$this->assertGreaterThan(0, self::$lss->test_sleep, 'Sleep not set.');
+		$flag = login_security_solution::LOGIN_UNKNOWN_IP;
+		$this->assertSame($flag + 1, $actual, 'wp_login() return value...');
+		$this->assertGreaterThan(0, self::$lss->sleep, 'Sleep not set.');
 
 		$actual = self::$lss->get_pw_force_change($this->user->ID);
 		$this->assertFalse($actual, 'get_pw_force_change() return value...');
