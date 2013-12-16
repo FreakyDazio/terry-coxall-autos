@@ -6,7 +6,7 @@
  * Description: Requires very strong passwords, repels brute force login attacks, prevents login information disclosures, expires idle sessions, notifies admins of attacks and breaches, permits administrators to disable logins for maintenance or emergency reasons and reset all passwords.
  *
  * Plugin URI: http://wordpress.org/extend/plugins/login-security-solution/
- * Version: 0.36.0
+ * Version: 0.42.0
  *         (Remember to change the VERSION constant, below, as well!)
  * Author: Daniel Convissor
  * Author URI: http://www.analysisandsolutions.com/
@@ -42,7 +42,7 @@ class login_security_solution {
 	/**
 	 * This plugin's version
 	 */
-	const VERSION = '0.36.0';
+	const VERSION = '0.42.0';
 
 	/**
 	 * This plugin's table name prefix
@@ -58,12 +58,21 @@ class login_security_solution {
 	const E_EMPTY = 'pw-empty';
 	const E_NUMBER = 'pw-number';
 	const E_PUNCT = 'pw-punct';
+	const E_REUSED = 'pw-reused';
 	const E_SEQ_CHAR = 'pw-seqchar';
 	const E_SEQ_KEY = 'pw-seqkey';
 	const E_SHORT = 'pw-short';
 	const E_SITE = 'pw-site';
 	const E_STRING = 'pw-string';
 	const E_USER = 'pw-user';
+
+	const LOGIN_FORCE_PW_CHANGE = 2;
+	const LOGIN_NOTIFY = 4;
+	const LOGIN_VERIFIED_IP_SAFE = 8;
+	const LOGIN_UNKNOWN_IP = 16;
+	const LOGIN_CLEAN = 32;
+	const LOGIN_VERIFIED_IP_NEW = 64;
+	const LOGIN_VERIFIED_IP_OLD = 128;
 
 	/**
 	 * Is the dict command available?
@@ -97,6 +106,12 @@ class login_security_solution {
 	 * @var string
 	 */
 	protected $dir_sequences;
+
+	/**
+	 * Is the current request coming from the XML-RPC interface?
+	 * @var bool
+	 */
+	protected $is_xmlrpc = false;
 
 	/**
 	 * Our URI query string key for passing messages to the login form
@@ -151,16 +166,22 @@ class login_security_solution {
 	protected $option_name;
 
 	/**
+	 * Should the wp_login_failed action be skipped?
+	 * @var bool
+	 */
+	protected $skip_wp_login_failed = false;
+
+	/**
+	 * How many seconds were slept
+	 * @var int
+	 */
+	protected $sleep;
+
+	/**
 	 * Name, with $table_prefix, of the table tracking login failures
 	 * @var string
 	 */
 	protected $table_fail;
-
-	/**
-	 * How many seconds would have been slept
-	 * @var int
-	 */
-	protected $test_sleep;
 
 	/**
 	 * Our usermeta key for tracking when passwords were changed
@@ -198,6 +219,18 @@ class login_security_solution {
 	 */
 	protected $umk_verified_ips;
 
+	/**
+	 * The user's password from the authenticate filter
+	 * @var string
+	 */
+	protected $user_pass;
+
+	/**
+	 * Is this an XML-RPC request?
+	 * @var bool
+	 */
+	protected $xmlrpc_enabled = false;
+
 
 	/**
 	 * Declares the WordPress action and filter callbacks
@@ -218,6 +251,9 @@ class login_security_solution {
 
 		add_action('login_form_resetpass', array(&$this, 'pw_policy_establish'));
 
+		add_filter('xmlrpc_enabled', array(&$this, 'xmlrpc_enabled'));
+		add_filter('authenticate', array(&$this, 'authenticate'), 999, 3);
+		add_action('wp_login_failed', array(&$this, 'wp_login_failed'));
 		add_action('wp_login', array(&$this, 'wp_login'), 1, 2);
 		add_filter('login_errors', array(&$this, 'login_errors'));
 		add_filter('login_message', array(&$this, 'login_message'));
@@ -227,7 +263,6 @@ class login_security_solution {
 		}
 
 		if ($this->options['idle_timeout']) {
-			add_action('wp_login', array(&$this, 'delete_last_active'));
 			add_action('wp_logout', array(&$this, 'delete_last_active'));
 			add_action('auth_cookie_expired', array(&$this, 'auth_cookie_expired'));
 		}
@@ -328,7 +363,7 @@ class login_security_solution {
 	 */
 
 	/**
-	 * Passes failed auth cookie data to our login failure process
+	 * Sends failed auth cookie data to our login failure process
 	 *
 	 * NOTE: This method is automatically called by WordPress when a user's
 	 * cookie has an invalid user name or password hash.
@@ -340,24 +375,29 @@ class login_security_solution {
 	 *       and slow down the response as necessary
 	 */
 	public function auth_cookie_bad($cookie_elements) {
+		if ($this->sleep) {
+			###$this->log(__FUNCTION__, "already called ($this->sleep)");
+			return -3;
+		}
+
 		// Remove cookies to prevent further mayhem.
 		wp_clear_auth_cookie();
 
 		if (empty($cookie_elements['username'])) {
+			###$this->log(__FUNCTION__, "empty username");
 			return -1;
 		} else {
 			$username = $cookie_elements['username'];
 		}
 		if (empty($cookie_elements['hmac'])) {
+			###$this->log(__FUNCTION__, "empty hmac");
 			return -2;
 		} else {
 			$hmac = $cookie_elements['hmac'];
 		}
-		###$this->log("auth_cookie_bad: $username, $hmac");
 
-		// The auth cookie process happens so early that we can't close the
-		// database connection yet.
-		$this->process_login_fail($username, $hmac, false);
+		###$this->log(__FUNCTION__, "$username, $hmac");
+		return $this->process_login_fail($username, $hmac);
 	}
 
 	/**
@@ -379,17 +419,68 @@ class login_security_solution {
 			return -1;
 		}
 
+		###$this->log(__FUNCTION__, $user->user_login);
 		return delete_user_meta($user->ID, $this->umk_last_active);
 	}
 
 	/**
+	 * Stores the user's password for later use and handles XML-RPC checks
+	 *
+	 * NOTE: This method is automatically called by WordPress from the
+	 * wp_authenticate() function, which is used during web and XML-RPC logins.
+	 *
+	 * @param mixed $user  watever the prior filter gave us
+	 * @param string $user_name  the user name from the current login form
+	 * @param string $user_pass  the unhashed new password
+	 * @return mixed  whatever the prior filter gave us
+	 *
+	 * @uses login_security_solution::$user_pass  to hold the password
+	 */
+	public function authenticate($user, $user_name, $user_pass = null) {
+		if (!$user_name) {
+			###$this->log(__FUNCTION__, "empty user_name");
+			return $user;
+		}
+		if ($user_pass === null) {
+			###$this->log(__FUNCTION__, "empty user_pass");
+			die(self::NAME . ": password not passed to authenticate filter");
+		}
+
+		$this->user_pass = $user_pass;
+
+		if (!$this->is_xmlrpc) {
+			###$this->log(__FUNCTION__, "$user_name web");
+			return $user;
+		}
+
+		###$this->log(__FUNCTION__, "$user_name xmlrpc");
+
+		if ($user instanceof WP_Error) {
+			###$this->log(__FUNCTION__, "$user_name already wp_error");
+			return $user;
+		}
+
+		$process = $this->process_login_success($user);
+
+		if ($this->check(null, $user) !== true) {
+			###$this->log(__FUNCTION__, "$user_name check failed");
+			// Login is legit, but pw needs resetting.  Don't insert fail.
+			$this->skip_wp_login_failed = true;
+			return null;
+		}
+
+		###$this->log(__FUNCTION__, "$user_name good");
+		return $user;
+	}
+
+	/**
 	 * Redirects the current user to the login screen if their password
-	 * is expired or needs to be reset
+	 * is expired, needs to be reset, or their session was idle too long
 	 *
 	 * NOTE: This method is automatically called by WordPress after
 	 * successful validation of authentication cookies.
 	 *
-	 * @param array $cookie_elements  values from the user's cookies
+	 * @param array $cookie_elements  values from the user's cookies (ignored)
 	 * @param WP_User $user  the current user
 	 * @return mixed  return values provided for unit testing
 	 *
@@ -409,6 +500,7 @@ class login_security_solution {
 		// The auth_cookie_valid action may be executed multiple times.
 		// Bail if the current_user has not been determined yet.
 		if (!($current_user instanceof WP_User) || empty($user->ID)) {
+			###$this->log(__FUNCTION__, "empty user");
 			return false;
 		}
 
@@ -416,40 +508,51 @@ class login_security_solution {
 		 * NOTE: redirect_to_login() calls exit(), except when unit testing.
 		 */
 
-		if ($this->is_idle($user->ID)) {
-			###$this->log("check(): Idle.");
-			$this->redirect_to_login('idle', true);
-			return -5;
+		if (!$this->is_xmlrpc) {
+			if ($this->is_idle($user->ID)) {
+				###$this->log(__FUNCTION__, "idle");
+				$this->redirect_to_login('idle', true);
+				return -5;
+			}
 		}
 
 		if ($this->is_pw_expired($user->ID)) {
 			$grace = $this->check_pw_grace_period($user->ID);
 			if ($grace === true) {
-				###$this->log("check(): First time here since password expired.");
-				$this->redirect_to_login('pw_grace', true);
+				###$this->log(__FUNCTION__, "first since password expired");
+				if (!$this->is_xmlrpc) {
+					$this->redirect_to_login('pw_grace', true);
+				}
 				return -1;
 			} elseif ($grace === false) {
-				###$this->log("check(): Grace period expired.");
-				$this->redirect_to_login('pw_expired', false, 'retrievepassword');
+				###$this->log(__FUNCTION__, "grace period expired");
+				if (!$this->is_xmlrpc) {
+					$this->redirect_to_login('pw_expired', false, 'retrievepassword');
+				}
 				return -2;
 			}
 			// Grace period is in effect, let them slide for now.
 		}
 
 		if ($this->get_pw_force_change($user->ID)) {
-			###$this->log("check(): Password force change.");
-			$this->redirect_to_login('pw_force', false, 'retrievepassword');
+			###$this->log(__FUNCTION__, "password force change");
+			if (!$this->is_xmlrpc) {
+				$this->redirect_to_login('pw_force', false, 'retrievepassword');
+			}
 			return -3;
 		}
 
 		if ($this->options['disable_logins']
 			&& !current_user_can('administrator'))
 		{
-			###$this->log("check(): Disable logins.");
-			$this->redirect_to_login();
+			###$this->log(__FUNCTION__, "disable logins");
+			if (!$this->is_xmlrpc) {
+				$this->redirect_to_login();
+			}
 			return -4;
 		}
 
+		###$this->log(__FUNCTION__, "good");
 		return true;
 	}
 
@@ -479,12 +582,12 @@ class login_security_solution {
 
 		if (empty($user_ID)) {
 			if (empty($user_name)) {
-				###$this->log("delete_last_active(): Empty user_ID, user_name.");
+				###$this->log(__FUNCTION__, "empty user_ID, user_name");
 				return;
 			}
 			$user = get_user_by('login', $user_name);
 			if (! $user instanceof WP_User) {
-				###$this->log("delete_last_active(): Unknown user_name.");
+				###$this->log(__FUNCTION__, "unknown user_name");
 				return -1;
 			}
 			$user_ID = $user->ID;
@@ -507,20 +610,18 @@ class login_security_solution {
 	 * attackers from knowing that half of the puzzle has been solved.
 	 *
 	 * NOTE: This method is automatically called by WordPress when attempted
-	 * logins are unssucessful.
+	 * logins via web forms are unssucessful.
 	 *
 	 * @param string $out  the output from earlier login_errors filters
 	 * @return string
-	 *
-	 * @uses login_security_solution::process_login_fail()  to log the failure
-	 *       and slow down the response as necessary
 	 */
 	public function login_errors($out = '') {
-		global $errors, $wp_error, $user_name;
+		global $errors, $wp_error;
 
 		if (isset($_REQUEST['action']) && $_REQUEST['action'] == 'register') {
 			// Do not alter "invalid_username" or "invalid_email" messages
 			// from registration process.  (WP 3.3 reuses error codes.)
+			###$this->log(__FUNCTION__, "register");
 			return $out;
 		}
 
@@ -529,28 +630,27 @@ class login_security_solution {
 		} elseif (is_wp_error($wp_error)) {
 			$error_codes = $wp_error->get_error_codes();
 		} else {
+			###$this->log(__FUNCTION__, "not wp_error");
 			return $out;
 		}
 
 		$codes_to_cloak = array('incorrect_password', 'invalid_username');
 		if (array_intersect($error_codes, $codes_to_cloak)) {
-			// Use POST value, global $user_name isn't always set.
-			$user_name = empty($_POST['log']) ? '' : $_POST['log'];
-			$user_pass = empty($_POST['pwd']) ? '' : $_POST['pwd'];
+			###$this->log(__FUNCTION__, "invalid username or password");
 			// Unset user name to avoid information disclosure.
 			unset($_POST['log']);
-			###$this->log("login_fail(): $user_name, $user_pass.");
-			$this->process_login_fail($user_name, $user_pass);
 			$this->load_plugin_textdomain();
 			return $this->hsc_utf8(__('Invalid username or password.', self::ID));
 		}
 
 		$codes_to_cloak = array('invalid_email', 'invalidcombo');
 		if (array_intersect($error_codes, $codes_to_cloak)) {
+			###$this->log(__FUNCTION__, "password reset invalid user");
 			// Translation already in WP.
 			return $this->hsc_utf8(__('Password reset is not allowed for this user'));
 		}
 
+		###$this->log(__FUNCTION__, "flow through");
 		return $out;
 	}
 
@@ -623,20 +723,26 @@ class login_security_solution {
 	 */
 	public function password_reset($user, $user_pass) {
 		if (empty($user->ID)) {
-			###$this->log("password_reset(): user->ID not set.");
+			###$this->log(__FUNCTION__, "user->ID not set");
 			return false;
 		}
 
 		$user->user_pass = $user_pass;
 		$errors = new WP_Error;
 		if (!$this->validate_pw($user, $errors)) {
-			###$this->log("password_reset(): Invalid password chosen.");
+			###$this->log(__FUNCTION__, "invalid password chosen");
 			$this->set_pw_force_change($user->ID);
 
 			$code = $errors->get_error_code();
 			$code = str_replace(self::ID . '_', '', $code);
 			$this->redirect_to_login($code, false, 'rp');
 			return -1;
+		}
+
+		if ($this->is_pw_reused($user_pass, $user->ID)) {
+			###$this->log(__FUNCTION__, "password reused");
+			$this->redirect_to_login(self::E_REUSED, false, 'rp');
+			return -2;
 		}
 
 		$this->save_verified_ip($user->ID, $this->get_ip());
@@ -712,9 +818,8 @@ class login_security_solution {
 				return null;
 			}
 			if ($this->is_pw_reused($user->user_pass, $user->ID)) {
-				$this->load_plugin_textdomain();
 				$errors->add(self::ID,
-					$this->err(__("Passwords can not be reused.", self::ID)),
+					$this->err($this->msg(self::E_REUSED)),
 					array('form-field' => 'pass1')
 				);
 				return false;
@@ -731,122 +836,119 @@ class login_security_solution {
 	}
 
 	/**
-	 * Examines if a successful login is coming from an attacker and takes
-	 * action if it is
+	 * Passes good web form logins to process_login_success()
 	 *
-	 * NOTE: This method is automatically called by WordPress when users
-	 * successfully log in.
+	 * NOTE: This method is automatically called by WordPress upon successful
+	 * logins via wp_signon().
 	 *
 	 * @param string $user_name  the user name from the current login form
 	 * @param WP_User $user  the current user
 	 * @return mixed  return values provided for unit testing
 	 *
-	 * @uses login_security_solution::get_ip()  to get the
-	 *       $_SERVER['REMOTE_ADDR']
-	 * @uses login_security_solution::get_network_ip()  gets the IP's
-	 *       "network" part
-	 * @uses login_security_solution::md5()  to hash the password
-	 * @uses login_security_solution::get_login_fail()  to see if
-	 *       they're over the limit
-	 * @uses login_security_solution::get_verified_ips()  to check legitimacy
-	 * @uses login_security_solution::$options  for the
-	 *       login_fail_breach_notify value
-	 * @uses login_security_solution::$options  for the
-	 *       login_fail_breach_pw_force_change value
-	 * @uses login_security_solution::set_pw_force_change() to keep atackers
-	 *       from doing damage or changing the account's email address
-	 * @uses login_security_solution::notify_breach()  to warn of the breach
-	 * @uses login_security_solution::calculate_sleep()  to set sleep length
+	 * @uses login_security_solution::process_login_success()  to, uh, process
 	 */
 	public function wp_login($user_name, $user) {
-		if (!$user_name) {
-			return;
-		}
-
-		$ip = $this->get_ip();
-		$network_ip = $this->get_network_ip($ip);
-		$pass_md5 = $this->md5(empty($_POST['pwd']) ? '' : $_POST['pwd']);
-
-		$return = 1;
-		$sleep = 0;
-		$fails = $this->get_login_fail($network_ip, $user_name, $pass_md5);
-
-		if (!$fails['total']) {
-			return $return;
-		}
-
-		/*
-		 * Keep legitimate users from having to repeatedly reset passwords
-		 * during active attacks against their user name (password).  Do this
-		 * if the user's current IP address is not involved with the
-		 * recent failed logins and the current IP address has been verified.
-		 */
-		if ($fails['network_ip'] <= $this->options['login_fail_breach_pw_force_change']
-			&& in_array($ip, $this->get_verified_ips($user->ID)))
-		{
-			// Use <= instead of <, above, in case
-			// login_fail_breach_pw_force_change = 0.
-
-			###$this->log("wp_login(): verified IP.");
-			$return += 8;
-			$verified_ip = true;
-		} else {
-			###$this->log("wp_login(): non-verified IP.");
-			$verified_ip = false;
-			// Need to also slow down successful logins so attackers can't use
-			// short timeouts to skip the slowdowns from login failures.
-			$sleep = $this->calculate_sleep($fails['total']);
-		}
-		$this->test_sleep = $sleep;
-
-		if ($this->options['login_fail_breach_pw_force_change']
-			&& $fails['total'] >= $this->options['login_fail_breach_pw_force_change']
-			&& !$verified_ip)
-		{
-			###$this->log("wp_login(): Breach force change.");
-			$this->set_pw_force_change($user->ID);
-			// NOTE: This value is used by the notify method calls, below.
-			$return += 2;
-		}
-
-		if ($this->options['login_fail_breach_notify']
-			&& $fails['total'] >= $this->options['login_fail_breach_notify']
-			&& !$verified_ip)
-		{
-			###$this->log("wp_login(): Breach notify.");
-			$this->notify_breach($network_ip, $user_name, $pass_md5, $fails,
-					$return & 2);
-			$this->notify_breach_user($user, $return & 2);
-			$return += 4;
-		}
-
-		if ($sleep && !defined('LOGIN_SECURITY_SOLUTION_TESTING')) {
-			###$this->log("wp_login(): sleep for $sleep seconds.");
-			sleep($sleep);
-		}
-
-		return $return;
+		###$this->log(__FUNCTION__, is_object($user) ? $user->user_name : 'ERROR: non-object');
+		return $this->process_login_success($user);
 	}
+
+	/**
+	 * Catches failed login attempts and passes them to our failure processor
+	 *
+	 * NOTE: This method is automatically called by WordPress when web or
+	 * XML-RPC login attempts fail.
+	 *
+	 * @param string $user_name  the user name from the current login form
+	 * @return mixed  return values provided for unit testing
+	 *
+	 * @uses login_security_solution::process_login_fail()  to log the failure
+	 *       and slow down the response as necessary
+	 */
+	public function wp_login_failed($user_name) {
+		if ($this->skip_wp_login_failed) {
+			###$this->log(__FUNCTION__, "$user_name skip login failed");
+			$this->skip_wp_login_failed = false;
+			return -1;
+		}
+		if (!$user_name) {
+			###$this->log(__FUNCTION__, "empty user_name");
+			return -2;
+		}
+		if ($this->user_pass === null) {
+			###$this->log(__FUNCTION__, "authenticate filter not called");
+			###global $wp_filter;
+			###$this->log(__FUNCTION__, 'authenticate filters', $wp_filter['authenticate']);
+			###$this->log(__FUNCTION__, 'backtrace', debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
+			die(self::NAME . ": authenticate filter not called");
+		}
+		###$this->log(__FUNCTION__, $user_name);
+		return $this->process_login_fail($user_name, $this->user_pass);
+	}
+
+	/**
+	 * Makes a note that the current request is via XML-RPC
+	 *
+	 * NOTE: This method is automatically called by WordPress on XML-RPC
+	 * requests.
+	 *
+	 * @param mixed $out  watever the prior filter gave us
+	 * @return mixed  whatever the prior filter gave us
+	 *
+	 * @uses login_security_solution::$is_xmlrpc  to say it's an RPC request
+	 */
+	public function xmlrpc_enabled($out) {
+		if ($this->options['disable_logins']
+			&& !current_user_can('administrator'))
+		{
+			###$this->log(__FUNCTION__, "disable logins");
+			return false;
+		}
+		###$this->log(__FUNCTION__, "");
+		$this->is_xmlrpc = true;
+		return $out;
+	}
+
 
 	/*
 	 * ===== INTERNAL METHODS ====
 	 */
 
 	/**
-	 * Determines how long the current request should sleep() for
+	 * Increasingly slows down attackers to the point they'll give up
+	 *
+	 * Disconnects the database, sleeps, then reconnects the database.
 	 *
 	 * @param int $fails_total  how many falures have taken place
-	 * @return int  the number of seconds to sleep
+	 * @return int  the number of seconds sleept
 	 */
-	protected function calculate_sleep($fails_total) {
+	protected function call_sleep($fails_total) {
+		global $wpdb;
+
+		if ($this->sleep) {
+			###$this->log(__FUNCTION__, "already called");
+			return 0;
+		}
+
 		if ($fails_total < $this->options['login_fail_tier_2']) {
 			// Use random, overlapping sleep times to complicate profiling.
-			return rand(1, 7);
+			$this->sleep = rand(1, 7);
 		} elseif ($fails_total < $this->options['login_fail_tier_3']) {
-			return rand(4, 30);
+			$this->sleep = rand(4, 30);
 		} else {
-			return rand(25, 60);
+			$this->sleep = rand(25, 60);
 		}
+		###$this->log(__FUNCTION__, $this->sleep);
+
+		if (!defined('LOGIN_SECURITY_SOLUTION_TESTING')) {
+			// Keep login failures from becoming denial of service attacks.
+			mysql_close($wpdb->dbh);
+
+			sleep($this->sleep);
+
+			$wpdb->db_connect();
+		}
+
+		return $this->sleep;
 	}
 
 	/**
@@ -898,6 +1000,7 @@ class login_security_solution {
 	 * @return bool
 	 */
 	protected function delete_pw_force_change($user_ID) {
+		###$this->log(__FUNCTION__, $user_ID);
 		return delete_user_meta($user_ID, $this->umk_pw_force_change);
 	}
 
@@ -934,6 +1037,14 @@ class login_security_solution {
 			$email = get_site_option('admin_email');
 		}
 		return $email;
+	}
+
+	/**
+	 * Removes HTML special characters from blogname
+	 * @return string
+	 */
+	protected function get_blogname() {
+		return wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
 	}
 
 	/**
@@ -1005,7 +1116,9 @@ class login_security_solution {
 					AND date_failed > DATE_SUB(NOW(), INTERVAL "
 					. (int) $this->options['login_fail_minutes'] . " MINUTE)";
 
-		return $wpdb->get_row($sql, ARRAY_A);
+		$result = $wpdb->get_row($sql, ARRAY_A);
+		###$this->log(__FUNCTION__, '', $result);
+		return $result;
 	}
 
 	/**
@@ -1085,7 +1198,20 @@ Password MD5                 %5d     %s
 	 * @return bool  does the user need to change their password?
 	 */
 	protected function get_pw_force_change($user_ID) {
+		###$this->log(__FUNCTION__, $user_ID);
 		return (bool) get_user_meta($user_ID, $this->umk_pw_force_change, true);
+	}
+
+	/**
+	 * Gets the server's request time
+	 *
+	 * Provided for overloading by unit tests so they can create multiple
+	 * entries in one request.
+	 *
+	 * @return int  $_SERVER['REQUEST_TIME']
+	 */
+	protected function get_time() {
+		return $_SERVER['REQUEST_TIME'];
 	}
 
 	/**
@@ -1245,6 +1371,8 @@ Password MD5                 %5d     %s
 	 */
 	protected function insert_fail($ip, $user_login, $pass_md5) {
 		global $wpdb;
+
+		###$this->log(__FUNCTION__, "$ip, $user_login, $pass_md5");
 
 		$wpdb->insert(
 			$this->table_fail,
@@ -1489,7 +1617,7 @@ Password MD5                 %5d     %s
 	 */
 	protected function is_pw_like_bloginfo($pw) {
 		// Note: avoiding get_bloginfo() because it's very expensive.
-		if ($this->has_match($pw, get_option('blogname'))) {
+		if ($this->has_match($pw, $this->get_blogname())) {
 			return true;
 		}
 		if ($this->has_match($pw, get_option('siteurl'))) {
@@ -1738,13 +1866,18 @@ Password MD5                 %5d     %s
 
 	/**
 	 * Sends a message to my debug log
+	 *
+	 * @param string $function  the method calling this method
+	 * @param string $msg  the message or description
+	 * @param array $data  the data, if any
+	 * @return void
 	 */
-	public function log($msg) {
-		if (!is_scalar($msg)) {
-			$msg = var_export($msg, true);
+	public function log($function, $msg, $data = array()) {
+		if ($data) {
+			$msg .= ": " . json_encode($data);
 		}
-		file_put_contents('/var/tmp/' . self::ID . '.log',
-			date('Y-m-d H:i:s') . ": $msg\n", FILE_APPEND);
+		file_put_contents('/var/log/' . self::ID . '.log',
+			date('Y-m-d H:i:s') . " $function: $msg\n", FILE_APPEND);
 	}
 
 	/**
@@ -1769,6 +1902,7 @@ Password MD5                 %5d     %s
 	 * @return string
 	 */
 	protected function msg($code) {
+		$this->load_plugin_textdomain();
 		switch ($code) {
 			case self::E_ASCII:
 				return __("Passwords must use ASCII characters.", self::ID);
@@ -1784,6 +1918,8 @@ Password MD5                 %5d     %s
 				return sprintf(__("Passwords must either contain numbers or be %d characters long.", self::ID), $this->options['pw_complexity_exemption_length']);
 			case self::E_PUNCT:
 				return sprintf(__("Passwords must either contain punctuation marks / symbols or be %d characters long.", self::ID), $this->options['pw_complexity_exemption_length']);
+			case self::E_REUSED:
+				return __("Passwords can not be reused.", self::ID);
 			case self::E_SEQ_CHAR:
 				return __("Passwords can't have that many sequential characters.", self::ID);
 			case self::E_SEQ_KEY:
@@ -1945,7 +2081,7 @@ Password MD5                 %5d     %s
 
 		$to = $this->sanitize_whitespace($this->get_admin_email());
 
-		$blog = get_option('blogname');
+		$blog = $this->get_blogname();
 		$subject = sprintf(__("POTENTIAL INTRUSION AT %s", self::ID), $blog);
 		$subject = $this->sanitize_whitespace($subject);
 
@@ -1988,7 +2124,7 @@ Password MD5                 %5d     %s
 
 		$to = $this->sanitize_whitespace($user->user_email);
 
-		$blog = get_option('blogname');
+		$blog = $this->get_blogname();
 		$subject = sprintf(__("VERIFY YOU LOGGED IN TO %s", self::ID), $blog);
 		$subject = $this->sanitize_whitespace($subject);
 
@@ -2031,7 +2167,7 @@ Password MD5                 %5d     %s
 
 		$to = $this->sanitize_whitespace($this->get_admin_email());
 
-		$blog = get_option('blogname');
+		$blog = $this->get_blogname();
 		$subject = sprintf(__("ATTACK HAPPENING TO %s", self::ID), $blog);
 		$subject = $this->sanitize_whitespace($subject);
 
@@ -2061,40 +2197,41 @@ Password MD5                 %5d     %s
 	}
 
 	/**
-	 * Records the failed login, disconnects the database, then calls sleep()
-	 * for increasing amounts of time as more failures come in
+	 * Calls the needed methods when a login failure happens
 	 *
 	 * @param string $user_name  the user name from the current login form
 	 * @param string $user_pass  the unhashed new password
-	 * @param bool $close_db  should mysql_close() be called?
 	 * @return int  the number of seconds sleep()'ed (for use by unit tests)
 	 *
 	 * @uses login_security_solution::get_ip()  to get the IP address
 	 * @uses login_security_solution::get_network_ip()  gets the IP's
 	 *       "network" part
 	 * @uses login_security_solution::md5()  to hash the password
+	 * @uses login_security_solution::is_login_fail_exact_match()  to prevent
+	 *       tracking duplicate "failures"
+	 * @uses login_security_solution::insert_fail()  to track the fail data
 	 * @uses login_security_solution::get_login_fail()  to see if
 	 *       they're over the limit
 	 * @uses login_security_solution::notify_fail()  to warn of an attack
-	 * @uses login_security_solution::calculate_sleep()  to set sleep length
+	 * @uses login_security_solution::call_sleep()  to sleep the needed length
 	 */
-	protected function process_login_fail($user_name, $user_pass,
-			$close_db = true)
-	{
-		global $wpdb;
-
+	protected function process_login_fail($user_name, $user_pass) {
+		###$this->log(__FUNCTION__, $user_name);
 		$ip = $this->get_ip();
 		$network_ip = $this->get_network_ip($ip);
 		$pass_md5 = $this->md5($user_pass);
 
-		if ($this->is_login_fail_exact_match($ip, $user_name, $pass_md5)) {
-			// Don't track duplicates, user is trying bad pw over and over.
-			return -1;
+		// Don't track duplicates.
+		$match = $this->is_login_fail_exact_match($ip, $user_name, $pass_md5);
+		if (!$match) {
+			$this->insert_fail($ip, $user_name, $pass_md5);
 		}
-
-		$this->insert_fail($ip, $user_name, $pass_md5);
-
 		$fails = $this->get_login_fail($network_ip, $user_name, $pass_md5);
+		if ($match) {
+			###$this->log(__FUNCTION__, "duplicate");
+			$this->call_sleep($fails['total']);
+			return -4;
+		}
 
 		if ($this->options['login_fail_notify']
 			&& ! ($fails['total'] % $this->options['login_fail_notify']))
@@ -2106,24 +2243,124 @@ Password MD5                 %5d     %s
 			}
 		}
 
-		$sleep = $this->calculate_sleep($fails['total']);
+		return $this->call_sleep($fails['total']);
+	}
 
-		if (!defined('LOGIN_SECURITY_SOLUTION_TESTING')) {
-			if (is_multisite()) {
-				// Get this cached before disconnecting the database.
-				get_option('users_can_register');
-			}
-
-			// Keep login failures from becoming denial of service attacks.
-			if ($close_db) {
-				mysql_close($wpdb->dbh);
-			}
-
-			// Increasingly slow down attackers to the point they'll give up.
-			sleep($sleep);
+	/**
+	 * Handles successful logins
+	 *
+	 * @param WP_User $user  the current user
+	 * @return mixed  return values provided for unit testing
+	 *
+	 * @uses login_security_solution::get_ip()  to get the IP address
+	 * @uses login_security_solution::get_network_ip()  gets the IP's
+	 *       "network" part
+	 * @uses login_security_solution::md5()  to hash the password
+	 * @uses login_security_solution::get_login_fail()  to see if we can skip
+	 *       sleeping
+	 * @uses login_security_solution::set_pw_force_change() to keep atackers
+	 *       from doing damage or changing the account's email address
+	 * @uses login_security_solution::notify_breach()  to warn of the breach
+	 * @uses login_security_solution::notify_breach_user()  to warn of breach
+	 * @uses login_security_solution::call_sleep()  to sleep the needed length
+	 */
+	protected function process_login_success($user) {
+		if ($this->user_pass === null) {
+			###$this->log(__FUNCTION__, "authenticate filter not called");
+			return -2;
+		}
+		if (! $user instanceof WP_User) {
+			###$this->log(__FUNCTION__, "not wp_user");
+			return -3;
 		}
 
-		return $sleep;
+		###$this->log(__FUNCTION__, $user->user_login);
+
+		if (!$this->is_xmlrpc) {
+			delete_user_meta($user->ID, $this->umk_last_active);
+		}
+
+		$flag = 1;
+		$ip = $this->get_ip();
+		$network_ip = $this->get_network_ip($ip);
+		$pass_md5 = $this->md5($this->user_pass);
+		$fails = $this->get_login_fail($network_ip, $user->user_login, $pass_md5);
+
+		if (!$fails['total']) {
+			###$this->log(__FUNCTION__, "$user->user_login no fails");
+			$flag += self::LOGIN_CLEAN;
+			return $flag;
+		}
+
+		/*
+		 * Keep legitimate users from having to repeatedly reset passwords
+		 * during active attacks against their user name (password).  Do this
+		 * if the user's current IP address is not involved with the
+		 * recent failed logins and the current IP address has been verified.
+		 */
+
+		$ip_time = array_search($ip, $this->get_verified_ips($user->ID));
+		###$this->log(__FUNCTION__, 'ip_time', $ip_time ? $ip_time : 'false');
+		if ($ip_time !== false) {
+			if ($fails['network_ip'] <= $this->options['login_fail_breach_pw_force_change'])
+			{
+				// Use <= instead of <, above, in case
+				// login_fail_breach_pw_force_change = 0.
+
+				// Not part of attack.
+				###$this->log(__FUNCTION__, "$user->user_login verified IP, not part of attack");
+				$flag += self::LOGIN_VERIFIED_IP_SAFE;
+				$verified_ip = true;
+			} else {
+				$age = $this->get_time() - $ip_time;
+				$max_age_permitted = $this->options['login_fail_minutes'] * 60;
+				if ($age < $max_age_permitted) {
+					// Same IP as "attacker," but IP verified recently.
+					###$this->log(__FUNCTION__, "$user->user_login, part of attack, but newly verified IP ($age < $max_age_permitted)");
+					$flag += self::LOGIN_VERIFIED_IP_NEW;
+					$verified_ip = true;
+				} else {
+					// Same IP as "attacker," and IP verified a while ago.
+					###$this->log(__FUNCTION__, "$user->user_login, part of attack, old verified IP ($age >= $max_age_permitted)");
+					$flag += self::LOGIN_VERIFIED_IP_OLD;
+					$verified_ip = false;
+				}
+			}
+		} else {
+			###$this->log(__FUNCTION__, "$user->user_login non-verified IP");
+			$flag += self::LOGIN_UNKNOWN_IP;
+			$verified_ip = false;
+		}
+
+		if ($this->options['login_fail_breach_pw_force_change']
+			&& $fails['total'] >= $this->options['login_fail_breach_pw_force_change']
+			&& !$verified_ip)
+		{
+			###$this->log(__FUNCTION__, "$user->user_login breach force change");
+			$this->set_pw_force_change($user->ID);
+			// NOTE: This value is used by the notify method calls, below.
+			$flag += self::LOGIN_FORCE_PW_CHANGE;
+		}
+
+		if ($this->options['login_fail_breach_notify']
+			&& $fails['total'] >= $this->options['login_fail_breach_notify']
+			&& !$verified_ip)
+		{
+			###$this->log(__FUNCTION__, "$user->user_login breach notify");
+			$this->notify_breach($network_ip, $user->user_login, $pass_md5,
+					$fails, $flag & self::LOGIN_FORCE_PW_CHANGE);
+			$this->notify_breach_user($user,
+					$flag & self::LOGIN_FORCE_PW_CHANGE);
+			$flag += self::LOGIN_NOTIFY;
+		}
+
+		if (!$verified_ip) {
+			// Need to also slow down successful logins so attackers can't use
+			// short timeouts to skip the slowdowns from login failures.
+			$this->call_sleep($fails['total']);
+		}
+
+		return $flag;
 	}
 
 	/**
@@ -2245,11 +2482,13 @@ Password MD5                 %5d     %s
 	/**
 	 * Stores the user's current IP address
 	 *
-	 * Note: saves up to 10 adddresses, duplicates are not stored.
+	 * Note: saves up to 20 adddresses, duplicates are not stored.
+	 *
+	 * Note: storing IP's in array values for backwards compatibility.
 	 *
 	 * @param int $user_ID  the user's id number
 	 * @param string $new_ip  the ip address to add
-	 * @return mixed  true on success, 1 if IP is already stored, -1 if IP empty
+	 * @return mixed  true on success, -1 if IP empty
 	 */
 	protected function save_verified_ip($user_ID, $new_ip) {
 		if (!$new_ip) {
@@ -2257,16 +2496,19 @@ Password MD5                 %5d     %s
 		}
 
 		$ips = $this->get_verified_ips($user_ID);
+		$time = array_search($new_ip, $ips);
 
-		if (in_array($new_ip, $ips)) {
-			return 1;
+		if ($time !== false) {
+			// Replace time stamp.
+			unset($ips[$time]);
 		}
+		$ips[$this->get_time()] = $new_ip;
 
-		$ips[] = $new_ip;
-
-		$cut = count($ips) - 10;
-		if ($cut > 0) {
-			array_splice($ips, 0, $cut);
+		if (count($ips) > 20) {
+			// Drop oldest (first) element to keep array from getting to big.
+			// Can't use array_shift() because it reindexes the array
+			$first_key = key($ips);
+			unset($ips[$first_key]);
 		}
 
 		update_user_meta($user_ID, $this->umk_verified_ips, $ips);
@@ -2322,6 +2564,7 @@ Password MD5                 %5d     %s
 	 *                   if error
 	 */
 	protected function set_pw_force_change($user_ID) {
+		###$this->log(__FUNCTION__, $user_ID);
 		return update_user_meta($user_ID, $this->umk_pw_force_change, 1);
 	}
 
@@ -2335,6 +2578,13 @@ Password MD5                 %5d     %s
 	 */
 	protected function set_pw_grace_period($user_ID) {
 		return update_user_meta($user_ID, $this->umk_grace_period, time());
+	}
+
+	/**
+	 * Sets the value of the sleep property
+	 */
+	public function set_sleep($value) {
+		$this->sleep = $value;
 	}
 
 	/**
@@ -2451,8 +2701,6 @@ Password MD5                 %5d     %s
 	 * @return bool
 	 */
 	public function validate_pw($user, &$errors = null) {
-		$this->load_plugin_textdomain();
-
 		if (is_object($user)) {
 			$all_tests = true;
 

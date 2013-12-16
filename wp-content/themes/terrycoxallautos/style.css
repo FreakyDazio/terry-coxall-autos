@@ -789,15 +789,15 @@ footer p {
   margin-top: 10px;
   float: right;
 }
-.katb_widget_multiple_box_basic {
+.katb_widget_box_basic {
   margin-bottom: 1em;
 }
-.katb_widget_multiple_meta_basic {
+.katb_widget_meta_basic {
   text-align: right;
   display: block;
   margin-top: 0.5em;
 }
-.katb_widget_multiple_meta_basic:before {
+.katb_widget_meta_basic:before {
   content:  "\2014 ";
 }
 .katb_input_style label {

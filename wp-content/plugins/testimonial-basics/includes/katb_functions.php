@@ -79,7 +79,7 @@ function katb_get_option_defaults() {
 function katb_get_option_parameters() {
 	
 	$options = array (
-/* -------------------------Input Form -------------------------------------- */
+/* ------------------------- General -------------------------------------- */
 		'katb_admin_access_level' => array(
 			'name' => 'katb_admin_access_level',
 			'title' => __('User role to edit testimonials','testimonial-basics'),
@@ -89,7 +89,7 @@ function katb_get_option_parameters() {
 				"Editor"
 			),
 			'description' => __('default: Administrator','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'general',
 			'default' => 'Administrator',
 			'class' => 'select'
 		),
@@ -98,7 +98,7 @@ function katb_get_option_parameters() {
 			'title' => __('Testimonial notify email address','testimonial-basics'),
 			'type' => 'text',
 			'description' => __('Leave blank to use admin email','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'general',
 			'default' => '',
 			'class' => 'email'
 		),
@@ -107,34 +107,52 @@ function katb_get_option_parameters() {
 			'title' => __( 'Use captcha on input forms' , 'testimonial-basics' ),
 			'type' => 'checkbox',
 			'description' => __('Check to include captcha.','testimonial-basics'),
-			'section' => 'input',
-			'default' =>0, // 0 for off
-			'class' => 'checkbox'
-		),				
-		'katb_include_input_title' => array(
-			'name' => 'katb_include_input_title',
-			'title' => __( 'Include title on input form' , 'testimonial-basics' ),
-			'type' => 'checkbox',
-			'description' => __('Check to include','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'general',
 			'default' =>0, // 0 for off
 			'class' => 'checkbox'
 		),
-		'katb_input_title' => array(
-			'name' => 'katb_input_title',
-			'title' => __('Title for Input Form','testimonial-basics'),
-			'type' => 'text',
-			'description' => __('Default:Add a Testimonial','testimonial-basics'),
-			'section' => 'input',
-			'default' => 'Add a Testimonial',
-			'class' => 'nohtml'
-		),			
+		'katb_use_color_captcha' => array(
+			'name' => 'katb_use_color_captcha',
+			'title' => __( 'Use color captcha option' , 'testimonial-basics' ),
+			'type' => 'checkbox',
+			'description' => __('Check to use the color captcha option','testimonial-basics'),
+			'section' => 'general',
+			'default' =>0, // 0 for off
+			'class' => 'checkbox'
+		),
+		'katb_enable_rotator' => array(
+			'name' => 'katb_enable_rotator',
+			'title' => __('Enable the testimonial rotator script','testimonial-basics'),
+			'type' => 'checkbox',
+			'description' => __('Default: checked','testimonial-basics'),
+			'section' => 'general',
+			'default' => 1,
+			'class' => 'checkbox'
+		),
+		'katb_exclude_website_input' => array(
+			'name' => 'katb_exclude_website_input',
+			'title' => __('Exclude Website in input form','testimonial-basics'),
+			'type' => 'checkbox',
+			'description' => __('Default: unchecked','testimonial-basics'),
+			'section' => 'general',
+			'default' => 0,
+			'class' => 'checkbox'
+		),
+		'katb_exclude_location_input' => array(
+			'name' => 'katb_exclude_location_input',
+			'title' => __('Exclude Location in input form','testimonial-basics'),
+			'type' => 'checkbox',
+			'description' => __('Default: unchecked','testimonial-basics'),
+			'section' => 'general',
+			'default' => 0,
+			'class' => 'checkbox'
+		),
 		'katb_include_email_note' => array(
 			'name' => 'katb_include_email_note',
 			'title' => __( 'Include email note' , 'testimonial-basics' ),
 			'type' => 'checkbox',
 			'description' => __('Check to include','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'general',
 			'default' =>0, // 0 for off
 			'class' => 'checkbox'
 		),
@@ -143,29 +161,171 @@ function katb_get_option_parameters() {
 			'title' => __('Email note','testimonial-basics'),
 			'type' => 'text',
 			'description' => __('Default:Email is not published','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'general',
 			'default' => 'Email is not published',
 			'class' => 'nohtml'
 		),
+/* ------------------------- Content Input Form -------------------------------------- */
+		'katb_include_input_title' => array(
+			'name' => 'katb_include_input_title',
+			'title' => __( 'Include title on input form' , 'testimonial-basics' ),
+			'type' => 'checkbox',
+			'description' => __('Check to include','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' =>0, // 0 for off
+			'class' => 'checkbox'
+		),
+		'katb_input_title' => array(
+			'name' => 'katb_input_title',
+			'title' => __('Title for Input Form','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default:Add a Testimonial','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => 'Add a Testimonial',
+			'class' => 'nohtml'
+		),			
 		'katb_show_html_content' => array(
 			'name' => 'katb_show_html_content',
 			'title' => __('Show html allowed strip in input form','testimonial-basics'),
 			'type' => 'checkbox',
 			'description' => __('Default: checked','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'content_input_form',
 			'default' => 1,
 			'class' => 'checkbox'
 		),
+		'katb_author_label' => array(
+			'name' => 'katb_author_label',
+			'title' => __('Author Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: * Author','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => '*Author',
+			'class' => 'nohtml'
+		),
+		'katb_email_label' => array(
+			'name' => 'katb_email_label',
+			'title' => __('Email Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: * Email','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => '* Email',
+			'class' => 'nohtml'
+		),
+		'katb_website_label' => array(
+			'name' => 'katb_website_label',
+			'title' => __('Website Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Website','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => 'Website',
+			'class' => 'nohtml'
+		),
+		'katb_location_label' => array(
+			'name' => 'katb_location_label',
+			'title' => __('Location Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Location','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => 'Location',
+			'class' => 'nohtml'
+		),
+		'katb_testimonial_label' => array(
+			'name' => 'katb_testimonial_label',
+			'title' => __('Testimonial Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: * Testimonial','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => '* Testimonial',
+			'class' => 'nohtml'
+		),
+		'katb_required_label' => array(
+			'name' => 'katb_required_label',
+			'title' => __('Required Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: * Required','testimonial-basics'),
+			'section' => 'content_input_form',
+			'default' => '* Required',
+			'class' => 'nohtml'
+		),
+/* ------------------------- Widget Input Form -------------------------------------- */		
 		'katb_show_html_widget' => array(
 			'name' => 'katb_show_html_widget',
 			'title' => __('Show html allowed strip in widget form','testimonial-basics'),
 			'type' => 'checkbox',
 			'description' => __('Default: not checked','testimonial-basics'),
-			'section' => 'input',
+			'section' => 'widget_input_form',
 			'default' => 0,
 			'class' => 'checkbox'
-		),		
+		),
+		'katb_widget_author_label' => array(
+			'name' => 'katb_widget_author_label',
+			'title' => __('Widget Author Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Author-Required','testimonial-basics'),
+			'section' => 'widget_input_form',
+			'default' => 'Author-Required',
+			'class' => 'nohtml'
+		),
+		'katb_widget_email_label' => array(
+			'name' => 'katb_widget_email_label',
+			'title' => __('Widget Email Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Email-Required','testimonial-basics'),
+			'section' => 'widget_input_form',
+			'default' => 'Email-Required',
+			'class' => 'nohtml'
+		),
+		'katb_widget_website_label' => array(
+			'name' => 'katb_widget_website_label',
+			'title' => __('Widget Website Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Website-Optional','testimonial-basics'),
+			'section' => 'widget_input_form',
+			'default' => 'Website-Optional',
+			'class' => 'nohtml'
+		),
+		'katb_widget_location_label' => array(
+			'name' => 'katb_widget_location_label',
+			'title' => __('Widget Location Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Location-Optional','testimonial-basics'),
+			'section' => 'widget_input_form',
+			'default' => 'Location-Optional',
+			'class' => 'nohtml'
+		),
+		'katb_widget_testimonial_label' => array(
+			'name' => 'katb_widget_testimonial_label',
+			'title' => __('Widget Testimonial Label','testimonial-basics'),
+			'type' => 'text',
+			'description' => __('Default: Testimonial-Required','testimonial-basics'),
+			'section' => 'widget_input_form',
+			'default' => 'Testimonial-Required',
+			'class' => 'nohtml'
+		),
 // Content Display
+		'katb_use_pagination' => array(
+			'name' => 'katb_use_pagination',
+			'title' => __( 'Use pagination' , 'testimonial-basics' ),
+			'type' => 'checkbox',
+			'description' => __('Check to include for ALL or ALL GROUP displays.','testimonial-basics'),
+			'section' => 'content',
+			'default' =>0, // 0 for off
+			'class' => 'checkbox'
+		),
+		'katb_paginate_number' => array(
+			'name' => 'katb_paginate_number',
+			'title' => __('Testimonials per page','testimonial-basics'),
+			'type' => 'select',
+			'valid_options' => array(
+				"3",
+				"5", 
+				"10"
+			),
+			'description' => __('select 3, 5 or 10 per page','testimonial-basics'),
+			'section' => 'content',
+			'default' => '10',
+			'class' => 'select'
+		),
 		'katb_use_excerpts' => array(
 			'name' => 'katb_use_excerpts',
 			'title' => __( 'Use excerpts in testimonial display' , 'testimonial-basics' ),
@@ -475,6 +635,7 @@ function katb_get_option_parameters() {
  */
  function katb_testimonial_basics_display_in_code($group='all',$by='date',$number='all',$id='',$use_gravatars=0,$use_excerpts=0,$excerpt_chars=200){
  	//set up database table name for later use
+ 
 	global $wpdb,$tablename;
 	$tablename = $wpdb->prefix.'testimonial_basics';
 	//get user options
@@ -532,64 +693,66 @@ function katb_get_option_parameters() {
 		$katb_tdata = $wpdb->get_results( " SELECT * FROM `$tablename` WHERE `tb_approved` = '1' AND `tb_group` = '$group' ORDER BY RAND() LIMIT 0,$number ",ARRAY_A);
 		$katb_tnumber = $wpdb->num_rows;
 	}
-	if ( $katb_tnumber == 0 ) $katb_error = __('Testimonial not found. Please check your function call variables.','testimonial_basics');
+	if ( $katb_tnumber == 0 ) $katb_error = __('Testimonial not found. Please check your function call variables.','testimonial-basics');
 	// Database queried
 	//Lets prepare the return string
 	if( $katb_error != '') {
 		$katb_html = '<div class="katb_error">'.$katb_error.'</div>';
 	} else {
 		for ( $i = 0 ; $i < $katb_tnumber; $i++ ) {
+			//if gravatars are enabled, check for valid avatar
+			if ( $use_gravatars == 1 )$has_valid_avatar = katb_validate_gravatar($katb_tdata[$i]['tb_email']);
 			//set up hidden popup if excerpt is used	
 			if ( $use_excerpts == 1 ) {
-				$katb_html .= '<div class="katb_topopup" id="katb_from_code_'.$katb_tdata[$i]['tb_id'].'">';
+				$katb_html .= '<div class="katb_topopup" id="katb_from_code_'.sanitize_text_field( $katb_tdata[$i]['tb_id'] ).'">';
 				$katb_html .= '<div class="katb_close"></div>';
-				$katb_html .= '<div class="katb_popup_text">'.stripcslashes($katb_tdata[$i]['tb_testimonial']).'</div><br/>';
-				$katb_html .= '<span class="katb_popup_meta">'.stripcslashes($katb_tdata[$i]['tb_name']);
+				if ( $use_gravatars == 1 ) {
+					If ( $has_valid_avatar == 1 ) {
+						$katb_html .= '<span class="katb_p_avatar">'.get_avatar( $katb_tdata[$i]['tb_email'], $size = '60' ).'</span>';
+					}
+				}	
+				$katb_html .= '<div class="katb_popup_text">'.wp_kses_post( stripcslashes($katb_tdata[$i]['tb_testimonial'] ) ).'</div><br/>';
+				$katb_html .= '<span class="katb_popup_meta">'.sanitize_text_field( stripcslashes($katb_tdata[$i]['tb_name'] ) );
 				if ($katb_options['katb_show_date'] == 1) {
-					$katb_date = $katb_tdata[$i]['tb_date'];
-					$year = intval(substr($katb_date,0,4));
-					$month = intval(substr($katb_date,5,2));
-					$monthname = date("M", mktime(0, 0, 0, $month, 10));
-					$day = intval(substr($katb_date,8,2));
-					$katb_html .= ', '.$monthname.' '.$day.'\''.$year;
+					$katb_date = sanitize_text_field( $katb_tdata[$i]['tb_date'] );
+					$katb_html .= ', <i>'.mysql2date(get_option('date_format'), $katb_date).'</i>';
 				}
 				if ($katb_options['katb_show_location'] == 1) {
-					if ( $katb_tdata[$i]['tb_location'] != "" ) $katb_html .= ', '.stripcslashes($katb_tdata[$i]['tb_location']);
+					if ( $katb_tdata[$i]['tb_location'] != "" ) $katb_html .= ', '.sanitize_text_field( stripcslashes($katb_tdata[$i]['tb_location'] ) );
+				}
+				if ($katb_options['katb_show_website'] == 1) {
+					if ( $katb_tdata[$i]['tb_url'] != "" ) $katb_html .= ', <a href="'.esc_url($katb_tdata[$i]['tb_url']).'" title="Testimonial_author_site" target="_blank" >'.$katb_tdata[$i]['tb_url'].'</a>';
 				}
 				$katb_html .= '</span></div>';
 				$katb_html .= '<div class="katb_loader"></div>';
-				$katb_html .= '<div class="katb_excerpt_popup_bg" id="katb_from_code_'.$katb_tdata[$i]['tb_id'].'_bg"></div>';
+				$katb_html .= '<div class="katb_excerpt_popup_bg" id="katb_from_code_'.sanitize_text_field( $katb_tdata[$i]['tb_id'] ).'_bg"></div>';
 			}
 			if ( $use_gravatars == 1 ) {
-				$has_valid_avatar = katb_validate_gravatar($katb_tdata[$i]['tb_email']);
 				If ( $has_valid_avatar == 1 ) {
 					$katb_html .= '<span class="katb_p_avatar">'.get_avatar( $katb_tdata[$i]['tb_email'], $size = '60' ).'</span>';
 				}
 			}			
 			if ($use_excerpts == 1) {
-				$text = stripcslashes($katb_tdata[$i]['tb_testimonial']);
-				$classID = 'katb_from_code_'.$katb_tdata[$i]['tb_id'];
-				$text = katb_testimonial_excerpt_filter($excerpt_chars,$text,$classID);
+				$text = wp_kses_post( stripcslashes($katb_tdata[$i]['tb_testimonial'] ) );
+				$classID = 'katb_from_code_'.sanitize_text_field( $katb_tdata[$i]['tb_id'] );
+				$text = katb_testimonial_excerpt_filter( $excerpt_chars, $text, $classID);
 				$katb_html .= '<div class="katb_p_test" >'.$text.'</div>';
 			} else {
-					$katb_html .= '<div class="katb_p_test" >'.stripcslashes($katb_tdata[$i]['tb_testimonial']).'</div>';
+					$katb_html .= '<div class="katb_p_test" >'.wp_kses_post( stripcslashes($katb_tdata[$i]['tb_testimonial'] ) ).'</div>';
 			}
-			$katb_html .= '<div class="katb_p_authorstrip"><b>'.stripcslashes($katb_tdata[$i]['tb_name']).'</b>';
+			$katb_html .= '<div class="katb_p_authorstrip"><b>'.sanitize_text_field( stripcslashes($katb_tdata[$i]['tb_name'] ) ).'</b>';
 			if ($katb_options['katb_show_date'] == 1) {
-				$katb_date = $katb_tdata[$i]['tb_date'];
-				$year = intval(substr($katb_date,0,4));
-				$month = intval(substr($katb_date,5,2));
-				$monthname = date("M", mktime(0, 0, 0, $month, 10));
-				$day = intval(substr($katb_date,8,2));
-				$katb_html .= ', '.$monthname.' '.$day.'\''.$year;
+				$katb_date = sanitize_text_field( $katb_tdata[$i]['tb_date'] );
+				$katb_html .= ', <i>'.mysql2date(get_option('date_format'), $katb_date).'</i>';
 			}
 			if ($katb_options['katb_show_location'] == 1) {
-				if ( $katb_tdata[$i]['tb_location'] != "" ) $katb_html .= ', '.stripcslashes($katb_tdata[$i]['tb_location']);
+				if ( $katb_tdata[$i]['tb_location'] != "" ) $katb_html .= ', '.sanitize_text_field( stripcslashes($katb_tdata[$i]['tb_location'] ) );
 			}
 			if ($katb_options['katb_show_website'] == 1) {
 				if ( $katb_tdata[$i]['tb_url'] != "" ) $katb_html .= ', <a href="'.esc_url($katb_tdata[$i]['tb_url']).'" title="Testimonial_author_site" target="_blank" >'.$katb_tdata[$i]['tb_url'].'</a>';
 			}
-			$katb_html .= '</div><br/>';
+			$katb_html .= '</div>';
+			$katb_html .= '<br style="clear:both;" /><br/>';
 		}
 	}	
 	return $katb_html;
@@ -618,6 +781,12 @@ function katb_allowed_html() {
 		'em' => array(),
 		'strong' => array(),
 		'q' => array(),
+		'a' => array(
+					'href' => array(),
+					'title' => array(),
+					'target' => array()
+					),
+		//'img' => array(),
 	);
 		
     return apply_filters( 'katb_allowed_html', $allowed_html );
@@ -645,12 +814,20 @@ function katb_validate_gravatar($email) {
 
 /**
  * Gets the current page url for use in a redirect after the testimonial has been submitted
- * @link http://kovshenin.com/2012/current-url-in-wordpress/
+ * 
  */ 
 function katb_current_page_url() {
-	global $wp;
-	$current_url = add_query_arg( $wp->query_string, '', home_url( $wp->request ) );
-	return $current_url;
+	$pageURL = 'http';
+	if( isset($_SERVER["HTTPS"]) ) {
+		if ($_SERVER["HTTPS"] == "on") {$pageURL .= "s";}
+	}
+	$pageURL .= "://";
+	if ($_SERVER["SERVER_PORT"] != "80") {
+		$pageURL .= $_SERVER["SERVER_NAME"].":".$_SERVER["SERVER_PORT"].$_SERVER["REQUEST_URI"];
+	} else {
+		$pageURL .= $_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"];
+	}
+	return $pageURL;
 }
 
 /**
@@ -671,6 +848,8 @@ function katb_check_for_submitted_testimonial() {
 	global $katb_author,$katb_email,$katb_website,$katb_location,$katb_testimonial,$katb_input_error,$katb_input_success;
 	$tablename = $wpdb->prefix.'testimonial_basics';
 	$katb_options = katb_get_options();
+	$exclude_website = $katb_options[ 'katb_exclude_website_input' ];
+	$exclude_location = $katb_options[ 'katb_exclude_location_input' ];
 	$katb_allowed_html = katb_allowed_html();
 	if ( isset ( $_POST['katb_submitted'] ) && wp_verify_nonce( $_POST['katb_main_form_nonce'],'katb_nonce_1')) {
 	
@@ -678,8 +857,6 @@ function katb_check_for_submitted_testimonial() {
 		$katb_input_error = '';
 		//Initialize session variable used to check if testimonial was successfully submitted
 		$_SESSION['katb_submitted'] = SHA1('false');
-		//Initialize return string
-		$html_string = '';
 		//Validate-Sanitize Input
 		//Set Defaults
 		$katb_order = "";
@@ -698,10 +875,20 @@ function katb_check_for_submitted_testimonial() {
 			$katb_input_error .= '*'.__('Valid email is required','testimonial-basics').'*';
 		}
 		//Validate-Sanitize Website
-		$katb_website = trim($_POST['tb_website']);
-		if ($katb_website != '')$katb_website = esc_url($katb_website);
+		if( $exclude_website != 1 ) {
+			$katb_website = trim($_POST['tb_website']);
+			if($katb_website != '')$katb_website = esc_url($katb_website);
+		} else {
+			$katb_website = '';
+		}
+		
 		//Validate Location
-		$katb_location = sanitize_text_field($_POST['tb_location']);
+		if( $exclude_location != 1 ) {
+			$katb_location = sanitize_text_field($_POST['tb_location']);
+		}else {
+			$katb_location = '';
+		}
+		
 		//Validate-Sanitize Testimonial
 		$katb_testimonial = wp_kses($_POST['tb_testimonial'],$katb_allowed_html);
 		if ($katb_testimonial == "" ) {
@@ -768,7 +955,6 @@ function katb_check_for_submitted_testimonial() {
 		$katb_location = "";
 		$katb_testimonial = "";
 		$katb_email = "";
-		$html_string = "";
 	}
 	/* ---------- Reset button is clicked ---------------- */
 	if(isset($_POST['katb_reset'])) {
@@ -795,21 +981,268 @@ add_action ('parse_request', 'katb_check_for_submitted_testimonial');
  * 
  */
 function katb_testimonial_excerpt_filter($length,$text,$classID) { 
-		
-		$text = strip_shortcodes($text);
-		$text = strip_tags($text,'<p></p><i></i><br/><br /><em></em><strong></strong><q></q><h1></h1><h2></h2><h3></h3><h4></h4><h5></h5><h6></h6>');
-		
-		$output = strlen($text);
-		if($output > $length ) {
-			$break_pos = strpos($text, ' ', $length);//find next space after desired length
-			if($break_pos == '')$break_pos = $length;
-			$text = substr($text,0,$break_pos);
-			//$text = force_balance_tags($text);
-			$text = $text.' <a href="#" class="katb_excerpt_more" data-id="'.$classID.'" > ...'.__('more','testimonial-basics').'</a>';
-			$text = force_balance_tags($text);
-		}
-	
-		return $text;
+	$text = strip_shortcodes($text);
+	$text = strip_tags($text, '<a><p><em><i><strong><img><h1><h2><h3><h4><h5><h6><q>');
+	$text_first_length = substr($text,0,$length);
+	$text_no_html = strip_tags($text_first_length);
+	$add_length = $length - strlen($text_no_html);
+	$length = $length + $add_length;
+	$output = strlen($text);
+	if($output > $length ) {
+		$break_pos = strpos($text, ' ', $length);//find next space after desired length
+		if($break_pos == '')$break_pos = $length;
+		//<br /> check
+		//$break_pos = $break_pos + 8;
+		if( substr( $text,$break_pos-4,4 ) == '<br ') $break_pos = $break_pos + 1;
+		$text = substr( $text, 0, $break_pos );
+		//$text = force_balance_tags( $text );
+		$text .= ' <a href="#" class="katb_excerpt_more" data-id="'.$classID.'" > ...'.__('more','testimonial-basics').'</a>';
+		$text = force_balance_tags($text);
 	}
+	return $text;
+}
+ 
+/*=====================================================================================================
+ *                           Page Navigation Functions
+ * ==================================================================================================== */
+ 
+/**
+ * This function sets up the array $setup for use by the katb_display_pagination() function
+ * @param $offset_name : string, name of session variable that stores the offset
+ * @param $database_table : string, name of the database table storing the entries we are paginating
+ * @param $span : int, number of entries to display on each page.
+ * @return $setup : array, contains the setup variables passed to  katb_display_pagination()
+ */
+function katb_setup_pagination( $offset_name, $span, $total_entries ){
+	
+	$paginate_setup = array();
 
-?>
+	//prevent divide by 0
+	if( $span == '' || $span == 0 ) $span = 10;
+	
+	//Check for offset and set to 0 if not there
+	if ( isset( $_SESSION[$offset_name] ) ) {
+		$offset = $_SESSION[$offset_name];
+	} else {
+		$offset = 0;
+	}
+	
+	//Calculate display pages required given the span
+	$pages_decimal = $total_entries/$span;
+	$pages = ceil( $pages_decimal );
+	
+	//calculate the page selected based on the offset
+	$page_selected = intval( $offset/$span + 1 );
+	
+	//Safety Checks
+	if ( $page_selected > $pages ) {
+		$offset = 0;
+		$_SESSION[$offset_name] = $offset;
+		$page_selected = 1;
+	}
+	if ( $page_selected < 1 ) $page_selected = 1;
+			
+	//Figure out the pages to list
+	$max_page_buttons = 5;
+	//Figure out $page_a
+	$j = $max_page_buttons;
+	while( $page_selected > $j ){ $j = $j + $max_page_buttons; }
+	$page_a = $j - $max_page_buttons + 1;
+	
+	//Set up display configuration
+	//only display the first button if there are a lot of downloads
+	$pages > ($max_page_buttons * 2)? $first = 'yes' : $first = 'no';
+	
+	//only display the previous button if more than 1 set
+	$pages > $max_page_buttons?	$previous = 'yes': $previous = 'no';
+	
+	//set up remaining page buttons
+	($page_a + 1) < ($pages + 1)? $page_b = $page_a + 1: $page_b = 'no';
+	($page_a + 2) < ($pages + 1)? $page_c = $page_a + 2: $page_c = 'no';
+	($page_a + 3) < ($pages + 1)? $page_d = $page_a + 3: $page_d = 'no';
+	($page_a + 4) < ($pages + 1)? $page_e = $page_a + 4: $page_e = 'no';
+	
+	//only display middle button for large number of downloads
+	$pages > ( $max_page_buttons * 2 )? $middle = 'yes': $middle = 'no';
+	
+	//only display the next button if more than 1 set
+	$pages > $max_page_buttons? $next = 'yes': $next = 'no';
+	
+	//only display the last button if there are a lot of downloads
+	$pages > ( $max_page_buttons * 2 )? $last = 'yes': $last = 'no';
+	
+	$setup = array(
+		'offset' => $offset,
+		'pages' => $pages,
+		'page_selected' => $page_selected,
+		'first' => $first,
+		'previous' => $previous,
+		'page_a' => $page_a,
+		'page_b' => $page_b,
+		'page_c' => $page_c,
+		'page_d' => $page_d,
+		'page_e' => $page_e,
+		'middle' => $middle,
+		'next' => $next,
+		'last' => $last
+	);
+	
+	return $setup;
+}
+
+/**
+ * This function displays the pagination buttons
+ * 
+ * @param $setup array : supplied by katb_setup_pagination()
+ * 
+ */
+function katb_display_pagination ($setup) {
+	echo '<form method="POST" action="#">';
+	if ( $setup['pages'] > 1 ) {
+		echo '<input type="button" class="ka_pages" value="Page '.$setup['page_selected'].' / '.$setup['pages'].'">';
+		if ( $setup['first'] != 'no' ) echo '<input type="submit" name="ka_paginate_post" value="<<" title="First" class="ka_paginate" />';
+			if ( $setup['previous'] != 'no') echo '<input type="submit" name="ka_paginate_post" value="<" title="Previous" class="ka_paginate" />';
+			if ( $setup['page_a'] == $setup['page_selected'] ) {
+				echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_a'].'" class="ka_paginate_selected"  />';
+			} else {
+				echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_a'].'" class="ka_paginate"  />';
+			}
+			if ( $setup['page_b'] == $setup['page_selected'] ) {
+				if ( $setup['page_b'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_b'].'" class="ka_paginate_selected" />';
+			} else {
+				if ( $setup['page_b'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_b'].'" class="ka_paginate" />';
+			}
+			if ( $setup['page_c'] == $setup['page_selected'] ) {
+				if ( $setup['page_c'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_c'].'" class="ka_paginate_selected" />';
+			} else {
+				if ( $setup['page_c'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_c'].'" class="ka_paginate" />';
+			}
+			if ( $setup['page_d'] == $setup['page_selected'] ) {
+				if ( $setup['page_d'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_d'].'" class="ka_paginate_selected" />';
+			} else {
+				if ( $setup['page_d'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_d'].'" class="ka_paginate" />';
+			}
+			if ( $setup['page_e'] == $setup['page_selected'] ) {
+				if ( $setup['page_e'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_e'].'" class="ka_paginate_selected" />';
+			} else {
+				if ( $setup['page_e'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="'.$setup['page_e'].'" class="ka_paginate" />';
+			}
+			if ( $setup['middle'] != "no" ) echo '<input type="submit" name="ka_paginate_post" value="^" title="Middle" class="ka_paginate" />';
+			if ( $setup['next'] != 'no' ) echo '<input type="submit" name="ka_paginate_post" value=">" title="Next" class="ka_paginate" />';
+			if ( $setup['last'] != 'no' ) echo '<input type="submit" name="ka_paginate_post" value=">>" title="Last" class="ka_paginate" />';
+		}
+	echo '</form>';
+}
+
+/**
+ * This function dets up the displays the pagination buttons html in a string
+ * 
+ * @param $setup array : supplied by katb_setup_pagination()
+ * 
+ */
+function katb_get_display_pagination_string ($setup) {
+	$html_return = '';
+	$html_return .= '<form method="POST" action="#">';
+	if ( $setup['pages'] > 1 ) {
+		$html_return .= '<input type="button" class="ka_display_paginate_summary" value="Page '.$setup['page_selected'].' / '.$setup['pages'].'">';
+		if ( $setup['first'] != 'no' ) $html_return .= '<input type="submit" name="ka_paginate_post" value="<<" title="First" class="ka_display_paginate" />';
+			if ( $setup['previous'] != 'no') $html_return .=  '<input type="submit" name="ka_paginate_post" value="<" title="Previous" class="ka_display_paginate" />';
+			if ( $setup['page_a'] == $setup['page_selected'] ) {
+				$html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_a'].'" class="ka_display_paginate_selected"  />';
+			} else {
+				$html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_a'].'" class="ka_display_paginate"  />';
+			}
+			if ( $setup['page_b'] == $setup['page_selected'] ) {
+				if ( $setup['page_b'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_b'].'" class="ka_display_paginate_selected" />';
+			} else {
+				if ( $setup['page_b'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_b'].'" class="ka_display_paginate" />';
+			}
+			if ( $setup['page_c'] == $setup['page_selected'] ) {
+				if ( $setup['page_c'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_c'].'" class="ka_display_paginate_selected" />';
+			} else {
+				if ( $setup['page_c'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_c'].'" class="ka_display_paginate" />';
+			}
+			if ( $setup['page_d'] == $setup['page_selected'] ) {
+				if ( $setup['page_d'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_d'].'" class="ka_display_paginate_selected" />';
+			} else {
+				if ( $setup['page_d'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_d'].'" class="ka_display_paginate" />';
+			}
+			if ( $setup['page_e'] == $setup['page_selected'] ) {
+				if ( $setup['page_e'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_e'].'" class="ka_display_paginate_selected" />';
+			} else {
+				if ( $setup['page_e'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="'.$setup['page_e'].'" class="ka_display_paginate" />';
+			}
+			if ( $setup['middle'] != "no" ) $html_return .=  '<input type="submit" name="ka_paginate_post" value="^" title="Middle" class="ka_display_paginate" />';
+			if ( $setup['next'] != 'no' ) $html_return .=  '<input type="submit" name="ka_paginate_post" value=">" title="Next" class="ka_display_paginate" />';
+			if ( $setup['last'] != 'no' ) $html_return .=  '<input type="submit" name="ka_paginate_post" value=">>" title="Last" class="ka_display_paginate" />';
+		}
+	$html_return .=  '</form>';
+	return $html_return;
+}
+
+/**
+ * This function sets up the offset depending which pagination button is clicked
+ * @param  @param $offset_name : string, name of session variable that stores the offset
+ * @param $database_table : string, name of the database table storing the entries we are paginating
+ * @param $span : int, number of entries to display on each page.
+ * @param $action : string, the value of the button that was clicked
+ */
+function katb_offset_setup ( $offset_name, $span, $action, $total_entries ) {
+	
+	//Start by getting offset
+	if ( isset( $_SESSION[$offset_name] ) ) {
+		$offset = $_SESSION[$offset_name];
+	} else {
+		$offset = 0;
+	}
+	
+	//prevent divide by 0
+	if( $span == '' || $span == 0 ) $span = 10;
+	
+	//Calculate total pages
+	$pages_decimal = $total_entries/$span;
+	$pages = ceil( $pages_decimal );
+	$page_selected = ( $offset/$span + 1 );
+	
+	//Safety Checks
+	if ( $page_selected > $pages ) {
+		$offset = 0;
+		$_SESSION[$offset_name] = $offset;
+		$page_selected = 1;
+	}
+	if ( $page_selected < 1 ) $page_selected = 1;
+	
+	$max_page_buttons = 5;
+	
+	//Figure out $page_a
+	$j = 5;
+	while( $page_selected > $j ){ $j = $j + $max_page_buttons; }
+	$page_a = $j - $max_page_buttons + 1;
+	
+	//Now that we know where we are at, figure out where we are going
+	if ( $action == '<<' ) {
+		$_SESSION[$offset_name] = 0;
+	} elseif ( $action == '<' ) {
+		if ( $page_a - $max_page_buttons < 1 ) {
+			$_SESSION[$offset_name] = 0;
+		} else {
+			$offset = ( $page_a - $max_page_buttons - 1 ) * $span;
+			$_SESSION[$offset_name] = $offset;
+		}
+	} elseif ( $action == '^' ) {
+		$offset = (floor($pages/2) - 1) * $span;
+		$_SESSION[$offset_name] = $offset;
+	} elseif ( $action == '>' ) {
+		if ( $page_a + $max_page_buttons <= $pages ) {
+			$offset = ( $page_a + $max_page_buttons - 1 ) * $span;
+			$_SESSION[$offset_name] = $offset;
+		}
+	} elseif ( $action == '>>' ) {
+		$offset = ($pages - 1) * $span;
+		$_SESSION[$offset_name] = $offset;
+	} else {
+		$page_no = intval($action);
+		$offset = ( $page_no - 1 ) * $span;
+		$_SESSION[$offset_name] = $offset;
+	}
+}
