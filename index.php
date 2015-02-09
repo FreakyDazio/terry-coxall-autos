@@ -1,17 +1,23 @@
-<?php
-/**
- * Front to the WordPress application. This file doesn't do anything, but loads
- * wp-blog-header.php which does and tells WordPress to load the theme.
- *
- * @package WordPress
- */
+<?php get_header(); ?>
 
-/**
- * Tells WordPress to load the WordPress theme and output it.
- *
- * @var bool
- */
-define('WP_USE_THEMES', true);
+    <section class="primary feature">
+      <div class="container">
+        <h2>Vehicle Repairs, Servicing and MOT</h2>
+      </div>
+    </section>
 
-/** Loads the WordPress Environment and Template */
-require( dirname( __FILE__ ) . '/wp-blog-header.php' );
+    <div class="content">
+      <div class="container">
+        <div class="primary content">
+          <?php while (have_posts()) : the_post(); ?>
+            <?php get_template_part('content', get_post_format()); ?>
+          <?php endwhile; ?>
+        </div>
+
+        <div class="secondary content" role="complementary">
+          <?php get_sidebar(); ?>
+        </div>
+      </div>
+    </div>
+
+<?php get_footer(); ?>
