@@ -1,0 +1,21 @@
+wordpress:
+  image: wordpress
+  environment:
+    WORDPRESS_DB_HOST: mysql
+    WORDPRESS_DB_PASSWORD: wordpress
+    WORDPRESS_DB_USER: wordpress
+  volumes:
+    - ".:/var/www/html/wp-content/themes/terrycoxallautos"
+  links:
+    - db:mysql
+  ports:
+    - "8080:80"
+db:
+  image: mysql
+  environment:
+    MYSQL_USER: wordpress
+    MYSQL_PASSWORD: wordpress
+    MYSQL_DATABASE: wordpress
+    MYSQL_ROOT_PASSWORD: awesome
+  expose:
+    - "3306"
